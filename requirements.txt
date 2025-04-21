@@ -1,0 +1,8 @@
+openai
+elevenlabs
+google-auth
+google-auth-oauthlib
+google-api-python-client
+moviepy
+ffmpeg-python
+python-dotenv
