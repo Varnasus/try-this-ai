@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+from generate_metadata import generate_video_metadata
 from moviepy.video.VideoClip import ImageClip, TextClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.audio.io.AudioFileClip import AudioFileClip
@@ -88,7 +89,8 @@ def render_video(script_path):
         "title": script_text.split("\n")[0][:100],
         "voice": VOICE_USED,
         "created_at": datetime.now().isoformat(),
-        "uploaded": False
+        "uploaded": False,
+        **generate_video_metadata(script_text)
     })
 
 
