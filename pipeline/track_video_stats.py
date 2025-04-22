@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+from generate_thumbnail import generate_thumbnails
 
 load_dotenv()
 
@@ -73,7 +74,7 @@ def update_stats(youtube, entries):
             entry["views"] = views
             entry["likes"] = likes
             entry["comments"] = comments
-            entry["last_checked_at"] = datetime.now().isoformat()
+            entry["last_checked_at"] = datetime.utcnow().isoformat()
 
             print(f"📈 Stats for {entry['title']}: {views} views, {likes} likes")
 
@@ -81,7 +82,7 @@ def update_stats(youtube, entries):
             if last_check:
                 try:
                     prev_time = datetime.fromisoformat(last_check)
-                    hours_elapsed = (datetime.now() - prev_time).total_seconds() / 3600
+                    hours_elapsed = (datetime.utcnow() - prev_time).total_seconds() / 3600
                     growth = (views - last_views) / hours_elapsed if hours_elapsed > 0 else 0
                     threshold = 50  # views per hour
                     if growth > threshold:
@@ -97,5 +98,6 @@ if __name__ == "__main__":
     youtube = get_authenticated_service()
     entries = load_entries()
     update_stats(youtube, entries)
+    generate_thumbnails(entries)  # ⬅️ generate multiple thumbnail variants if needed
     save_entries(entries)
     print("✅ All video stats updated.")
