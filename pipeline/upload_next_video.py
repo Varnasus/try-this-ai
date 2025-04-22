@@ -23,6 +23,7 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CREDENTIALS_FILE = "client_secret.json"
 TOKEN_PICKLE = "yt_tokens.pkl"
 
+
 def get_authenticated_service():
     creds = None
     if os.path.exists(TOKEN_PICKLE):
@@ -40,6 +41,7 @@ def get_authenticated_service():
 
     return build(API_SERVICE_NAME, API_VERSION, credentials=creds)
 
+
 def load_next_video():
     with open(VIDEO_LOG, 'r', encoding='utf-8') as f:
         entries = [json.loads(line) for line in f if line.strip()]
@@ -49,6 +51,7 @@ def load_next_video():
             return entry, i, entries
 
     return None, None, entries
+
 
 def upload_video(youtube, entry):
     print(f"📤 Uploading: {entry['video']}")
@@ -69,6 +72,8 @@ def upload_video(youtube, entry):
     chosen_thumb = random.choice(entry.get("thumbnails", []))
     entry["thumbnail_used"] = chosen_thumb
     entry["thumbnail_used_at"] = datetime.utcnow().isoformat()
+    entry.setdefault("thumbnail_stats", {}).setdefault(chosen_thumb, {"uses": 0, "views": 0, "score": 0.0})
+    entry["thumbnail_stats"][chosen_thumb]["uses"] += 1
 
     response = None
     while response is None:
@@ -89,7 +94,12 @@ def upload_video(youtube, entry):
     except HttpError as e:
         print(f"⚠️ Failed to set thumbnail: {e}")
 
+    # Initialize performance score
+    entry["thumbnail_stats"][chosen_thumb]["last_used_video_id"] = response['id']
+    entry["thumbnail_stats"][chosen_thumb]["last_used_at"] = datetime.now().isoformat()
+
     return response['id']
+
 
 def mark_uploaded(index, entries, video_id):
     entries[index]['uploaded'] = True
@@ -97,6 +107,7 @@ def mark_uploaded(index, entries, video_id):
     with open(VIDEO_LOG, 'w', encoding='utf-8') as f:
         for entry in entries:
             f.write(json.dumps(entry) + "\n")
+
 
 if __name__ == '__main__':
     youtube = get_authenticated_service()
