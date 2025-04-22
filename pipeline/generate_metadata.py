@@ -1,11 +1,11 @@
 import os
 import re
 import json
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = openai.api_key = os.getenv("OPENAI_API_KEY") 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def is_short_form(script_text):
     return len(script_text.split()) < 120
@@ -36,15 +36,15 @@ Return JSON:
 }}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{ "role": "user", "content": prompt }],
-        temperature=0.7
-    )
-
-    raw = response.choices[0].message.content
-
     try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{ "role": "user", "content": prompt }],
+            temperature=0.7
+        )
+
+        raw = response.choices[0].message.content
+
         # Extract JSON object from GPT response, ignoring markdown code fencing
         json_match = re.search(r"\{.*\}", raw, re.DOTALL)
         if json_match:
