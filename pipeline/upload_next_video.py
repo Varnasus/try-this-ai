@@ -13,6 +13,7 @@ load_dotenv()
 API_SERVICE_NAME = 'youtube'
 API_VERSION = 'v3'
 VIDEO_LOG = 'video/metadata.jsonl'
+TOP_PERFORMERS_FILE = 'video/top_performers.json'
 
 # Authentication assumes token.json already created via OAuth
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -22,6 +23,9 @@ import pickle
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CREDENTIALS_FILE = "client_secret.json"
 TOKEN_PICKLE = "yt_tokens.pkl"
+
+MAX_REUSE = 2
+LOCK_SCORE_THRESHOLD = 4.5
 
 
 def get_authenticated_service():
@@ -53,6 +57,30 @@ def load_next_video():
     return None, None, entries
 
 
+def choose_thumbnail(entry):
+    thumbs = entry.get("thumbnails", [])
+    stats = entry.get("thumbnail_stats", {})
+
+    locked = [t for t in thumbs if stats.get(t, {}).get("locked") is True]
+    reusable = [
+        t for t in thumbs
+        if stats.get(t, {}).get("reuse") is True and not stats.get(t, {}).get("disabled") and stats.get(t, {}).get("uses", 0) < MAX_REUSE
+    ]
+    eligible = [
+        t for t in thumbs
+        if not stats.get(t, {}).get("disabled")
+    ]
+
+    if locked:
+        return random.choice(locked)
+    elif reusable:
+        return random.choice(reusable)
+    elif eligible:
+        return random.choice(eligible)
+    else:
+        return random.choice(thumbs)  # fallback
+
+
 def upload_video(youtube, entry):
     print(f"📤 Uploading: {entry['video']}")
     body = {
@@ -69,7 +97,7 @@ def upload_video(youtube, entry):
 
     media = MediaFileUpload(entry['video'], chunksize=-1, resumable=True)
     request = youtube.videos().insert(part=','.join(body.keys()), body=body, media_body=media)
-    chosen_thumb = random.choice(entry.get("thumbnails", []))
+    chosen_thumb = choose_thumbnail(entry)
     entry["thumbnail_used"] = chosen_thumb
     entry["thumbnail_used_at"] = datetime.utcnow().isoformat()
     entry.setdefault("thumbnail_stats", {}).setdefault(chosen_thumb, {"uses": 0, "views": 0, "score": 0.0})
@@ -96,9 +124,44 @@ def upload_video(youtube, entry):
 
     # Initialize performance score
     entry["thumbnail_stats"][chosen_thumb]["last_used_video_id"] = response['id']
-    entry["thumbnail_stats"][chosen_thumb]["last_used_at"] = datetime.now().isoformat()
+    entry["thumbnail_stats"][chosen_thumb]["last_used_at"] = datetime.utcnow().isoformat()
+
+    # Recalculate score: views / uses
+    views = entry["thumbnail_stats"][chosen_thumb]["views"]
+    uses = entry["thumbnail_stats"][chosen_thumb]["uses"]
+    score = round(views / uses, 2) if uses > 0 else 0.0
+    entry["thumbnail_stats"][chosen_thumb]["score"] = score
+
+    # Auto-lock top performers
+    if score >= LOCK_SCORE_THRESHOLD:
+        entry["thumbnail_stats"][chosen_thumb]["locked"] = True
+        entry["thumbnail_stats"][chosen_thumb]["locked_at"] = datetime.utcnow().isoformat()
+
+        # Save to global top performers list
+        top_record = {
+            "thumbnail": chosen_thumb,
+            "score": score,
+            "views": views,
+            "uses": uses,
+            "title": entry.get("title"),
+            "video_id": response['id'],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        append_to_top_performers(top_record)
 
     return response['id']
+
+
+def append_to_top_performers(record):
+    if not os.path.exists(TOP_PERFORMERS_FILE):
+        with open(TOP_PERFORMERS_FILE, 'w') as f:
+            json.dump([record], f, indent=2)
+    else:
+        with open(TOP_PERFORMERS_FILE, 'r+') as f:
+            data = json.load(f)
+            data.append(record)
+            f.seek(0)
+            json.dump(data, f, indent=2)
 
 
 def mark_uploaded(index, entries, video_id):
