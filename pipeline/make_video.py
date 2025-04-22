@@ -1,13 +1,12 @@
 import os
 import json
 from datetime import datetime
-from generate_metadata import generate_video_metadata
 from moviepy.video.VideoClip import ImageClip, TextClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 from dotenv import load_dotenv
-from PIL import Image
-from text_to_speech import run_tts
+from pipeline.text_to_speech import run_tts  # Updated import path
+from pipeline.generate_metadata import generate_video_metadata
 
 # Load environment variables
 load_dotenv()

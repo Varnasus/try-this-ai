@@ -1,11 +1,11 @@
 import os
 import re
 import json
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.api_key = os.getenv("OPENAI_API_KEY") 
 
 def is_short_form(script_text):
     return len(script_text.split()) < 120
