@@ -1,5 +1,7 @@
 import os
 import json
+import random
+from datetime import datetime
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
@@ -53,8 +55,8 @@ def upload_video(youtube, entry):
     body = {
         'snippet': {
             'title': entry['title'],
-            'description': entry.get('description', ''),  # Use empty string if no description
-            'tags': entry.get('tags', []),  # Use empty list if no tags
+            'description': entry.get('description', ''),
+            'tags': entry.get('tags', []),
             'categoryId': '28',  # Science & Technology
         },
         'status': {
@@ -64,6 +66,9 @@ def upload_video(youtube, entry):
 
     media = MediaFileUpload(entry['video'], chunksize=-1, resumable=True)
     request = youtube.videos().insert(part=','.join(body.keys()), body=body, media_body=media)
+    chosen_thumb = random.choice(entry.get("thumbnails", []))
+    entry["thumbnail_used"] = chosen_thumb
+    entry["thumbnail_used_at"] = datetime.utcnow().isoformat()
 
     response = None
     while response is None:
@@ -72,6 +77,18 @@ def upload_video(youtube, entry):
             print(f"🔄 Upload progress: {int(status.progress() * 100)}%")
 
     print(f"✅ Upload complete! Video ID: {response['id']}")
+
+    # Set the chosen thumbnail after upload
+    try:
+        thumb_request = youtube.thumbnails().set(
+            videoId=response['id'],
+            media_body=MediaFileUpload(chosen_thumb)
+        )
+        thumb_request.execute()
+        print(f"🖼️ Thumbnail set: {chosen_thumb}")
+    except HttpError as e:
+        print(f"⚠️ Failed to set thumbnail: {e}")
+
     return response['id']
 
 def mark_uploaded(index, entries, video_id):
