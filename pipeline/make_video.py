@@ -52,5 +52,29 @@ def create_video(script_text):
     final.write_videofile(OUTPUT_VIDEO, fps=24, codec="libx264", audio_codec="aac")
 
 if __name__ == "__main__":
-    script = get_script_text(SCRIPT_FILE)
-    create_video(script)
+    load_dotenv()
+
+    script_text = get_script_text(SCRIPT_FILE)
+
+    if not os.path.exists(AUDIO_FILE):
+        run_tts(script_text)
+    else:
+        print(f"🔁 Reusing existing audio: {AUDIO_FILE}")
+
+    print("🎬 Rendering video...")
+    audio = AudioFileClip(AUDIO_FILE)
+    duration = audio.duration
+
+    bg = ImageClip(BACKGROUND_IMG).with_duration(duration).resized(height=1920).with_position("center")
+
+    txt = TextClip(
+        text=script_text,
+        font_size=60,
+        font="verdana",
+        color="white",
+        size=(1080 - 100, None),
+        method='caption'
+    ).with_position(("center", "bottom")).with_duration(duration)
+
+    final = CompositeVideoClip([bg, txt]).with_audio(audio)
+    final.write_videofile(OUTPUT_VIDEO, fps=24, codec="libx264", audio_codec="aac")
