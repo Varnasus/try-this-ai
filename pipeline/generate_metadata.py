@@ -36,15 +36,15 @@ Return JSON:
 }}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{ "role": "user", "content": prompt }],
-        temperature=0.7
-    )
-
-    raw = response.choices[0].message.content
-
     try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{ "role": "user", "content": prompt }],
+            temperature=0.7
+        )
+
+        raw = response.choices[0].message.content
+
         # Extract JSON object from GPT response, ignoring markdown code fencing
         json_match = re.search(r"\{.*\}", raw, re.DOTALL)
         if json_match:
