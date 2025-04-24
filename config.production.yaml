@@ -1,0 +1,21 @@
+# Production environment configuration
+app:
+  name: "Try This AI Video Generator"
+  version: "1.0.0"
+  debug: false
+  log_level: "INFO"
+
+api:
+  openai:
+    model: "gpt-4"
+    max_tokens: 2000
+    temperature: 0.7
+    timeout: 30
+
+  elevenlabs:
+    model: "eleven_monolingual_v1"
+    stability: 0.5
+    similarity_boost: 0.75
+    timeout: 30
+
+# ... rest of production-specific settings ...

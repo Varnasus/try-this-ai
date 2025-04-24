@@ -1,9 +1,10 @@
-import os
 import json
+import os
+
+from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from dotenv import load_dotenv
 
 # Load secrets from .env
 load_dotenv()
@@ -23,6 +24,7 @@ TAGS = ["AI", "PDF", "GPT-4", "YouTube Shorts", "Try This AI"]
 CATEGORY_ID = "28"  # Tech
 PRIVACY_STATUS = "public"  # or "unlisted", "private"
 
+
 def get_youtube_service():
     creds = Credentials(
         None,
@@ -30,9 +32,10 @@ def get_youtube_service():
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         token_uri=TOKEN_URI,
-        scopes=["https://www.googleapis.com/auth/youtube.upload"]
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
     return build("youtube", "v3", credentials=creds)
+
 
 def upload_video(youtube):
     media = MediaFileUpload(VIDEO_FILE, mimetype="video/mp4", resumable=True)
@@ -44,13 +47,11 @@ def upload_video(youtube):
                 "title": TITLE,
                 "description": DESCRIPTION,
                 "tags": TAGS,
-                "categoryId": CATEGORY_ID
+                "categoryId": CATEGORY_ID,
             },
-            "status": {
-                "privacyStatus": PRIVACY_STATUS
-            }
+            "status": {"privacyStatus": PRIVACY_STATUS},
         },
-        media_body=media
+        media_body=media,
     )
 
     print("📤 Uploading video...")
@@ -63,6 +64,7 @@ def upload_video(youtube):
     print(f"✅ Upload complete! Video ID: {response['id']}")
     return response["id"]
 
+
 def set_thumbnail(youtube, video_id):
     if not os.path.exists(THUMBNAIL_FILE):
         print("⚠️ No thumbnail found, skipping...")
@@ -70,11 +72,11 @@ def set_thumbnail(youtube, video_id):
 
     print("📸 Uploading thumbnail...")
     request = youtube.thumbnails().set(
-        videoId=video_id,
-        media_body=MediaFileUpload(THUMBNAIL_FILE)
+        videoId=video_id, media_body=MediaFileUpload(THUMBNAIL_FILE)
     )
     request.execute()
     print("✅ Thumbnail set.")
+
 
 if __name__ == "__main__":
     youtube = get_youtube_service()

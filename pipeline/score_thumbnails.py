@@ -29,7 +29,9 @@ def summarize_top_thumbnails(entries):
 
     print("\n🎯 Top Performing Thumbnails:")
     for i, (thumb, data) in enumerate(top[:10]):
-        print(f"{i+1:2d}. {thumb} — Score: {data['score']} | Views: {data['views']} | Uses: {data['uses']}")
+        print(
+            f"{i+1:2d}. {thumb} — Score: {data['score']} | Views: {data['views']} | Uses: {data['uses']}"
+        )
 
 
 if __name__ == "__main__":

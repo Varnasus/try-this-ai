@@ -1,22 +1,37 @@
-import os
 import json
+import os
 from datetime import datetime
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
-from dotenv import load_dotenv
-from pipeline.text_to_speech import run_tts
-from pipeline.generate_metadata import generate_video_metadata
 
-# Load environment variables
+from dotenv import load_dotenv
+from moviepy.editor import AudioFileClip, CompositeVideoClip, ImageClip, TextClip
+
+from config import Config, Environment
+from pipeline.generate_metadata import generate_video_metadata
+from pipeline.text_to_speech import run_tts
+
+# Load configuration and environment variables
+Config.load_config(Environment.PRODUCTION)
 load_dotenv()
 
-# Paths and configuration
-SCRIPT_DIR = "scripts"
-AUDIO_DIR = "audio"
-VIDEO_DIR = "video"
-THUMBNAIL_DIR = "thumbnails"
+# Get configuration values
+SCRIPT_DIR = Config.get("files.directories.scripts")
+AUDIO_DIR = Config.get("files.directories.audio")
+VIDEO_DIR = Config.get("files.directories.video")
+THUMBNAIL_DIR = Config.get("files.directories.thumbnails")
 METADATA_LOG = os.path.join(VIDEO_DIR, "metadata.jsonl")
 DEFAULT_BACKGROUND_IMG = os.path.join(THUMBNAIL_DIR, "thumb_001_A.png")
-VOICE_USED = "Laura"
+
+# Video settings from config
+VIDEO_SETTINGS = {
+    "width": Config.get("video.resolution.width"),
+    "height": Config.get("video.resolution.height"),
+    "fps": Config.get("video.fps"),
+    "codec": Config.get("video.codec"),
+    "bitrate": Config.get("video.bitrate"),
+    "audio_bitrate": Config.get("video.audio.bitrate"),
+    "audio_sample_rate": Config.get("video.audio.sample_rate"),
+    "audio_channels": Config.get("video.audio.channels"),
+}
 
 
 def get_script_text(path):
@@ -32,8 +47,13 @@ def log_metadata(entry):
             for line in f:
                 try:
                     existing = json.loads(line)
-                    if existing.get("script") == entry["script"] and existing.get("video") == entry["video"]:
-                        print(f"⚠️ Metadata already logged for {entry['script']}, skipping log.")
+                    if (
+                        existing.get("script") == entry["script"]
+                        and existing.get("video") == entry["video"]
+                    ):
+                        print(
+                            f"⚠️ Metadata already logged for {entry['script']}, skipping log."
+                        )
                         return
                 except json.JSONDecodeError:
                     continue
@@ -48,78 +68,54 @@ def render_video(script_path, background_img=None):
     audio_path = os.path.join(AUDIO_DIR, f"{base_name}.mp3")
     video_path = os.path.join(VIDEO_DIR, f"{base_name}.mp4")
 
-    # Create output directories if they don't exist
-    os.makedirs(os.path.dirname(audio_path), exist_ok=True)
-    os.makedirs(os.path.dirname(video_path), exist_ok=True)
+    # Use default background if none provided
+    if not background_img:
+        background_img = DEFAULT_BACKGROUND_IMG
 
-    script_text = get_script_text(script_path)
-
+    # Generate audio if it doesn't exist
     if not os.path.exists(audio_path):
-        run_tts(script_text, output_path=audio_path)
-    else:
-        print(f"🔁 Reusing existing audio: {audio_path}")
+        script_text = get_script_text(script_path)
+        run_tts(script_text, audio_path)
 
+    # Create video with configured settings
     audio = AudioFileClip(audio_path)
-    duration = audio.duration
+    background = ImageClip(background_img).set_duration(audio.duration)
 
-    # Use provided background image or fall back to default
-    bg_path = background_img if background_img else DEFAULT_BACKGROUND_IMG
-    if not os.path.exists(bg_path):
-        raise FileNotFoundError(f"Background image not found: {bg_path}")
-
-    # Create background clip
-    bg = ImageClip(bg_path)
-    bg = bg.set_duration(duration)
-    
-    # Resize background
-    current_w, current_h = bg.size
-    aspect_ratio = current_w / current_h
-    new_h = 1920
-    new_w = int(new_h * aspect_ratio)
-    bg = bg.resize(width=new_w, height=new_h)
-    bg = bg.set_position("center")
-
-    # Create text clip with updated parameters
-    txt = TextClip(
-        script_text,
-        size=(980, None),  # Adjusted size to account for padding
-        color='white',
-        fontsize=60,  # Changed from font_size to fontsize
-        font='Verdana',
-        method='caption',
-        align='center'  # Added alignment
+    # Set video properties from configuration
+    background = background.resize(
+        width=VIDEO_SETTINGS["width"], height=VIDEO_SETTINGS["height"]
     )
-    txt = txt.set_position(("center", "bottom"))
-    txt = txt.set_duration(duration)
-    txt = txt.margin(bottom=50)  # Add margin at the bottom
 
-    # Compose final video
-    final = CompositeVideoClip([bg, txt])
+    # Create final video
+    final = CompositeVideoClip([background])
     final = final.set_audio(audio)
 
-    # Write video file with progress bar
+    # Write video with configured settings
     final.write_videofile(
         video_path,
-        fps=24,
-        codec="libx264",
-        audio_codec="aac",
-        threads=4,
-        preset='ultrafast',  # Use faster preset for testing
-        logger=None  # Disable verbose logging
+        fps=VIDEO_SETTINGS["fps"],
+        codec=VIDEO_SETTINGS["codec"],
+        bitrate=VIDEO_SETTINGS["bitrate"],
+        audio_bitrate=VIDEO_SETTINGS["audio_bitrate"],
+        audio_fps=VIDEO_SETTINGS["audio_sample_rate"],
+        audio_nbytes=2,  # 16-bit audio
+        audio_channels=VIDEO_SETTINGS["audio_channels"],
     )
 
     # Log metadata
-    log_metadata({
-        "script": os.path.basename(script_path),
-        "video": video_path,
-        "audio": audio_path,
-        "thumbnail": bg_path,
-        "title": script_text.split("\n")[0][:100],
-        "voice": VOICE_USED,
-        "created_at": datetime.now().isoformat(),
-        "uploaded": False,
-        **generate_video_metadata(script_text)
-    })
+    metadata = generate_video_metadata(get_script_text(script_path))
+    log_metadata(
+        {
+            "script": script_path,
+            "video": video_path,
+            "audio": audio_path,
+            "background": background_img,
+            "timestamp": datetime.now().isoformat(),
+            **metadata,
+        }
+    )
+
+    return video_path
 
 
 if __name__ == "__main__":

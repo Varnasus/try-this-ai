@@ -1,0 +1,21 @@
+# Development environment configuration
+app:
+  name: "Try This AI Video Generator (Dev)"
+  version: "1.0.0"
+  debug: true
+  log_level: "DEBUG"
+
+api:
+  openai:
+    model: "gpt-3.5-turbo"
+    max_tokens: 1000
+    temperature: 0.7
+    timeout: 60
+
+  elevenlabs:
+    model: "eleven_monolingual_v1"
+    stability: 0.5
+    similarity_boost: 0.75
+    timeout: 60
+
+# ... rest of development-specific settings ...

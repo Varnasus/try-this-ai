@@ -1,0 +1,60 @@
+---
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+        args: ['--maxkb=500']
+
+-   repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+    -   id: black
+        exclude: ^\.venv/
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        args: ["--profile", "black", "--filter-files"]
+        exclude: ^\.venv/
+
+-   repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+    -   id: flake8
+        exclude: ^(\.venv|tests)/
+        args: [
+            '--max-line-length=88',
+            '--extend-ignore=E203,W503,F401,E402,E501,F541,F811',
+            '--per-file-ignores=__init__.py:F401'
+        ]
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+    -   id: mypy
+        exclude: ^\.venv/
+        additional_dependencies: [
+            'types-PyYAML',
+            'types-requests',
+            'types-python-dateutil',
+            'types-Pillow',
+            'types-setuptools',
+        ]
+        args: [
+            '--ignore-missing-imports',
+            '--no-strict-optional',
+            '--allow-untyped-defs',
+            '--allow-untyped-calls',
+            '--disable-error-code=attr-defined',
+            '--disable-error-code=unreachable',
+            '--disable-error-code=assignment',
+            '--disable-error-code=no-redef',
+            '--disable-error-code=var-annotated',
+            '--explicit-package-bases',
+            '--namespace-packages'
+        ]
